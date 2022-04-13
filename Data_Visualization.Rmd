@@ -1,0 +1,101 @@
+---
+title: "Data Visualization"
+author: "Quan Gan"
+date: '2022-04-12'
+output: 
+  html_document:
+      toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(knitr)
+library(tidyverse)
+library(usmap)
+library(htmlTable)
+library(ggplot2)
+```
+
+# Data
+The data set, [US Accidents (2016 - 2021)](https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents?resource=download), comes from Kaggle collected by Moosavi et al. The data set’s authors already published a research paper about accident risk prediction. There are 2.8 million car accident records which covers 49 states of the USA from February 2016 to December 2021 in the data set. In the data set, there are 47 attributes regarding the car accident details. These records were captured by a variety of US traffic department APIs such as the US and state departments of transportation, law enforcement agencies and so on.
+
+The original data set is too large to push to Github. I cleaned the data in another data_wrangling file. The cleaned data only contains records from 2020/01/20 to 2022/12 and 6 variables.
+
+```{r}
+# load data in
+car_accident_covid <- read_csv("./data/car_accidents_cleaned.csv")
+```
+
+# Research Question
+During the COVID-19 pandemic from January 20, 2020 to December 2021:
+
+1. which US states have most car accidents?
+
+2. Which weather conditions cause more car accidents across different severity in the US?
+
+3. How do car accident amounts change by time series?
+
+## Research Question 1
+which US states have most car accidents?
+
+### Data Inspection
+```{r fig.align="center"}
+cases <- car_accident_covid %>% 
+  count(State)
+
+cases_state <- data.frame(cases)
+
+cases_df <- cbind(cases_state[1:7,], 
+                  cases_state[8:14,], 
+                  cases_state[15:21, ], 
+                  cases_state[22:28,], 
+                  cases_state[29:35,], 
+                  cases_state[36:42,], 
+                  cases_state[43:49,])
+
+htmlTable(cases_df,
+          cgroup = c("Set 1:7", "Set 8:14", "Set 15:21", "Set 22:28","Set 29:35", "Set 36:42", "Set 43:49"),
+          n.cgroup = c(2,2,2,2,2,2,2),
+          rnames = FALSE,
+          caption = "A table contains car accident amount in different states")
+
+```
+
+
+### Data Visulization
+```{r fig.align='center', fig.width=14, fig.height=10}
+cases_2 <- cases %>% rename(state = State)
+
+state_info <- data.frame(state = state.abb,
+                         region = tolower(state.name)) 
+
+car_data <- state_info %>% 
+  left_join(cases_2)
+
+car_data %>% 
+  plot_usmap(data =.,
+             values = "n",
+             exclude = c("AK","HI")) +
+  scale_fill_continuous(high = "#FFC20A", low= "#0C7BDC", name="Amount", 
+          label = scales::comma) + 
+  theme(text = element_text(size = 20))  +
+  labs(title = "The US Car Accident During COVID19",
+       caption = "The car accident during COVID 19 in 49 US states. \nFrom the map, we can know California and Florida have most car accidents from Jan 2020 to Dec 2021")
+```
+
+From the above map, we could know California and Florida have most car accidents from Jan 2020 to Dec 2021 during the COVID 19. Most of states have fewer car accidents. The main car accidents occured in the border states.
+
+
+## Research Question 2
+Which weather conditions cause more car accidents across different severity in the US?
+
+### Data Inspection
+```{r}
+weather <- car_accident_covid %>% 
+  filter(!is.na(Weather_Condition)) %>% 
+  count(Weather_Condition) %>% 
+  arrange(desc(n)) %>% 
+  top_n(10) 
+
+weather %>% kable()
+```

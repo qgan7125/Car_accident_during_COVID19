@@ -1,0 +1,34 @@
+---
+title: "Data_wrangling"
+author: "Quan Gan"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+      toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+```
+
+## Data
+The data set, [US Accidents (2016 - 2021)](https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents?resource=download), contains the records that we don't need. Clean the data before we use.
+
+```{r}
+# load data in
+car_accidents_data <- read_csv("./data/US_Accidents_Dec21_updated.csv")
+```
+
+```{r}
+head(car_accidents_data)
+```
+
+```{r}
+cleaned_data <- car_accidents_data %>% 
+  filter(Start_Time > as.POSIXct('2020-01-20')) %>% 
+  select(Severity, Start_Time, Start_Lat, Start_Lng, State, Weather_Condition) 
+
+write_csv(cleaned_data, "./data/car_accidents_cleaned.csv")
+```
+
