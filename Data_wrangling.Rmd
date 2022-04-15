@@ -18,6 +18,7 @@ The data set, [US Accidents (2016 - 2021)](https://www.kaggle.com/datasets/sobha
 ```{r}
 # load data in
 car_accidents_data <- read_csv("./data/US_Accidents_Dec21_updated.csv")
+
 ```
 
 ```{r}

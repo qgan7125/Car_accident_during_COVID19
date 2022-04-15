@@ -14,12 +14,14 @@ library(tidyverse)
 library(usmap)
 library(htmlTable)
 library(ggplot2)
+library(ggthemes)
+library(plotly)
 ```
 
 # Data
 The data set, [US Accidents (2016 - 2021)](https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents?resource=download), comes from Kaggle collected by Moosavi et al. The data set’s authors already published a research paper about accident risk prediction. There are 2.8 million car accident records which covers 49 states of the USA from February 2016 to December 2021 in the data set. In the data set, there are 47 attributes regarding the car accident details. These records were captured by a variety of US traffic department APIs such as the US and state departments of transportation, law enforcement agencies and so on.
 
-The original data set is too large to push to Github. I cleaned the data in another data_wrangling file. The cleaned data only contains records from 2020/01/20 to 2022/12 and 6 variables.
+The original data set is too large to push to Github. I cleaned the data in another data_wrangling file. The cleaned data only contains records from 2020/01/20 to 2022/12 and 7 variables.
 
 ```{r}
 # load data in
@@ -76,8 +78,10 @@ car_data %>%
   plot_usmap(data =.,
              values = "n",
              exclude = c("AK","HI")) +
-  scale_fill_continuous(high = "#FFC20A", low= "#0C7BDC", name="Amount", 
-          label = scales::comma) + 
+  scale_fill_continuous(high = "#FFC20A", 
+                        low= "#0C7BDC", 
+                        name="Amount", 
+                        label = scales::comma) + 
   theme(text = element_text(size = 20))  +
   labs(title = "The US Car Accident During COVID19",
        caption = "The car accident during COVID 19 in 49 US states. \nFrom the map, we can know California and Florida have most car accidents from Jan 2020 to Dec 2021")
@@ -94,8 +98,203 @@ Which weather conditions cause more car accidents across different severity in t
 weather <- car_accident_covid %>% 
   filter(!is.na(Weather_Condition)) %>% 
   count(Weather_Condition) %>% 
-  arrange(desc(n)) %>% 
-  top_n(10) 
+  arrange(desc(n))
 
-weather %>% kable()
+weather %>% 
+  top_n(10) %>% 
+  kable(caption = "The top weather condition to cause car accident")
 ```
+The "Fair" means no weather condition impact. We need to remove it.
+
+### Data Visulization
+```{r fig.align='center', fig.height=10, fig.width=14}
+car_accident_covid %>% 
+  filter(!is.na(Weather_Condition), 
+         Weather_Condition != "Fair",
+         Weather_Condition %in% weather[1:11,]$Weather_Condition) %>% 
+  group_by(Weather_Condition, Severity) %>% 
+  summarize(count = n()) %>% 
+  mutate(total = sum(count),
+         percentage = count/total) %>%
+  arrange(total, .by_group = TRUE) %>% 
+  ggplot(aes(y =Weather_Condition, x= percentage,fill = as.factor(Severity))) +
+  geom_col() +
+  scale_fill_manual(values = c("#F0E442", "#0072B2", "#CC79A7", "#D55E00")) +
+  labs(title = "The Weather Condition Caused Most Car Accident and Severity Percentage During COVID 19",
+       y = "Weather Condition",
+       x = "Severity Percentage",
+       fill = "Severity",
+       caption = "The plot shows the top 10 weather conditions casused car accident during COVID 19. \nThe stacked bar shows how seversity distribute in these weather condition.") +
+  theme(text = element_text(size = 18),
+        plot.title = element_text(size = 20,face = "bold"))
+```
+
+
+
+The plot shows the top 10 weather conditions mainly cause severity 2 car accident.Rain, Light Rain, Heavy Rain are more likely causing severe car accident.This visualization don't completely answer our research question. 
+
+```{r fig.align='center', fig.height=12, fig.width=14}
+car_accident_covid %>% 
+  filter(!is.na(Weather_Condition), 
+         Weather_Condition != "Fair") %>% 
+  group_by(Weather_Condition, Severity) %>% 
+  summarize(count = n()) %>% 
+  mutate(total = sum(count),
+         percentage = count/total) %>%
+  arrange(total, .by_group = TRUE) %>% 
+  ggplot(aes(y =Weather_Condition, x= percentage,fill = as.factor(Severity))) +
+  geom_col() +
+  scale_fill_manual(values = c("#F0E442", "#0072B2", "#CC79A7", "#D55E00")) +
+  labs(title = "The All Weather Condition Caused Car Accident and Severity Percentage During COVID 19",
+       y = "Weather Condition",
+       x = "Severity Percentage",
+       fill = "Severity",
+       caption = "The plot shows the all weather conditions casused car accident during COVID 19. \nThe stacked bar shows how seversity distribute in these weather condition.") +
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 19, face = "bold"),
+        plot.caption = element_text(size = 16))
+```
+
+
+The second stacked bar plot is different than the first one. The first one also considers if 
+the weather conditions cause many car accident. The second one focus more on the severity. 
+The second plot shows "Patches of Fog / Windy" and "Smoke / Windy" are more likely to cause severe car accident. Another reason 
+to create the second plot because I realize the weather condition frequencies are not same. Some special weather conditions 
+occur fewer but cause severe car accident. By combining two plots, we should be careful when we drive with the weather 
+in the plot one. And we should avoid to drive when we meet with bad weathers caused severse accident in the plot 2.
+
+## Research Question 3
+3. How do car accident amounts change by time series?
+
+```{r}
+car_accident_covid <- car_accident_covid %>% 
+  mutate(time = format(as.Date(car_accident_covid$Start_Time), "%Y-%m"))
+
+car_accident_state <- car_accident_covid %>% 
+  count(State, time)
+
+car_accident_state %>% head() %>% kable()
+```
+
+### Data visulization by state areas
+```{r, fig.align='center', fig.height=6, fig.width=9}
+state_info <- data.frame(State = state.abb,
+                         region = state.name) 
+
+car_accident_state <- car_accident_state %>% 
+  left_join(state_info) %>% 
+  mutate(hover = paste0(region, "\n", n))
+
+fontStyle = list(
+  family = 'DM Sans',
+  size = 15,
+  color = 'black'
+)
+
+label = list(
+  bgcolor = "#EEEEEE",
+  bordercolor = "transparent",
+  font = fontStyle
+)
+
+graph = plot_geo(car_accident_state,
+                 locationmode = 'USA-states',
+                 frame = ~time) %>% 
+  add_trace(locations = ~State,
+            z = ~n,
+            zmin = 0,
+            zmax = max(car_accident_state$n),
+            color = ~n,
+            colors = "YlOrRd",
+            text = ~hover,
+            hoverinfo = "text") %>% 
+  layout(geo = list(scope = "usa"),
+         title = "Car accident in the US during COVID 19 \n01/2020-12/2021") %>% 
+  style(hoverlabel = label) %>% 
+  config(displayModeBar = FALSE) %>% 
+  colorbar(title = "Amount") %>% 
+  add_annotations(
+    showarrow=FALSE,
+    text="An interaction US map of the car accident changes through time in different states by state areas",
+    font=list(size=12), 
+    xref='x domain',
+    x=1,
+    yref='y domain',
+    y=-0.05
+    )
+
+graph
+```
+
+This is an interaction US map to visualize the car accident changes during COVID 19. If you click 
+"Play" button, you could see the car accident amount changes in different states. We could see 
+an obvious pattern. The amount decreases and then increase. The pandemic lockdown policy does reduce 
+the car accident by limiting the people outside. 
+
+### Data Visulization by bubble map
+```{r, fig.align='center', fig.height=6, fig.width=9}
+# this is another file to record the center latitude and longitude of different US states.
+usstate_center <- read_csv('./data/states_center.csv') %>% 
+  rename(region = state)
+
+car_accident_state_LL <- car_accident_state %>% 
+  left_join(usstate_center)
+  
+
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showland = TRUE,
+  landcolor = "#4E5D6C",
+  subunitcolor = toRGB("gray85"),
+  countrycolor = toRGB("gray85"),
+  countrywidth = 0.5,
+  subunitwidth = 0.5
+)
+
+fontStyle = list(
+  family = 'DM Sans',
+  size = 15,
+  color = 'black'
+)
+
+label = list(
+  bgcolor = "#EEEEEE",
+  bordercolor = "transparent",
+  font = fontStyle
+)
+
+graph = plot_geo(car_accident_state_LL,
+                 locationmode = 'USA-states',
+                 frame=~time) %>%
+  add_markers(
+    x = ~longitude, 
+    y = ~latitude, 
+    size = ~n,
+    marker = list(sizemode = "diameter"),
+    color = ~n,
+    colors = "OrRd",
+    text = ~hover,
+    hoverinfo = "text")%>%
+  layout(geo = g,
+         title = "Car accident in the US during COVID 19 \n01/2020-12/2021") %>%
+  style(hoverlabel = label) %>% 
+  config(displayModeBar = FALSE) %>% 
+  colorbar(title = "Amount") %>% 
+  add_annotations(
+    showarrow=FALSE,
+    text="An interaction US map of the car accident changes through time in different states by bubble",
+    font=list(size=12), 
+    xref='x domain',
+    x=1,
+    yref='y domain',
+    y=-0.05
+    )
+
+graph
+
+```
+
+This is another version of the interaction US map. In this graph, I use bubble map rather than 
+state area, which means I also add point size as a channel to aid the readers to understand 
+the changes except the colors. Not sure which map is better but these two styles seem both to work.
