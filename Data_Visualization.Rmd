@@ -21,7 +21,7 @@ library(plotly)
 # Data
 The data set, [US Accidents (2016 - 2021)](https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents?resource=download), comes from Kaggle collected by Moosavi et al. The data set’s authors already published a research paper about accident risk prediction. There are 2.8 million car accident records which covers 49 states of the USA from February 2016 to December 2021 in the data set. In the data set, there are 47 attributes regarding the car accident details. These records were captured by a variety of US traffic department APIs such as the US and state departments of transportation, law enforcement agencies and so on.
 
-The original data set is too large to push to Github. I cleaned the data in another data_wrangling file. The cleaned data only contains records from 2020/01/20 to 2022/12 and 7 variables.
+The original data set is too large to push to Github. I cleaned the data in another data_wrangling file. The cleaned data only contains records from 2020/01/20 to 2022/12 and 6 variables.
 
 ```{r}
 # load data in
